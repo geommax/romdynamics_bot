@@ -37,32 +37,47 @@ async def do_authentication(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 	await update.message.reply_text("Who are you?")
 
 
-async def handle_authentication_reply(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	if not update.message or not update.message.text:
-		logger.debug("Ignoring non-text authentication reply")
 		return
 
-	if not context.user_data.get("awaiting_auth_reply", False):
-		logger.debug("Ignoring text message because auth flow is not active")
+	# Handle Auth Flow
+	if context.user_data.get("awaiting_auth_reply", False):
+		provided_username = update.message.text.strip()
+		context.user_data["awaiting_auth_reply"] = False
+		logger.info(
+			"Auth reply received user_id=%s provided_username=%s",
+			update.effective_user.id if update.effective_user else None,
+			provided_username,
+		)
+
+		if provided_username == context.bot_data.get("AUTHORIZED_USERNAME"):
+			logger.info("Auth success for user_id=%s", update.effective_user.id if update.effective_user else None)
+			context.user_data["is_authorized"] = True
+			context.user_data["last_activity"] = time.time()
+			await update.message.reply_text("Authorized. You can now use restricted commands.")
+		else:
+			logger.info("Auth failed for user_id=%s", update.effective_user.id if update.effective_user else None)
+			context.user_data["is_authorized"] = False
+			await update.message.reply_text("Unauthorized.")
 		return
 
-	provided_username = update.message.text.strip()
-	context.user_data["awaiting_auth_reply"] = False
-	logger.info(
-		"Auth reply received user_id=%s provided_username=%s",
-		update.effective_user.id if update.effective_user else None,
-		provided_username,
-	)
+	# Handle YouTube Link Flow
+	if context.user_data.get("awaiting_youtube_link", False):
+		url = update.message.text.strip()
+		context.user_data["awaiting_youtube_link"] = False
+		
+		# Verify auth inside this flow just to be safe
+		is_authorized = context.user_data.get("is_authorized", False)
+		last_activity = context.user_data.get("last_activity", 0)
+		if not is_authorized or (time.time() - last_activity > 600):
+			context.user_data["is_authorized"] = False
+			await update.message.reply_text("Session expired. Please authenticate again.")
+			return
 
-	if provided_username == context.bot_data.get("AUTHORIZED_USERNAME"):
-		logger.info("Auth success for user_id=%s", update.effective_user.id if update.effective_user else None)
-		context.user_data["is_authorized"] = True
-		context.user_data["last_activity"] = time.time()
-		await update.message.reply_text("Authorized. You can now use restricted commands.")
-	else:
-		logger.info("Auth failed for user_id=%s", update.effective_user.id if update.effective_user else None)
-		context.user_data["is_authorized"] = False
-		await update.message.reply_text("Unauthorized.")
+		from yt_download import process_youtube_link
+		await process_youtube_link(update, context, url)
+		return
 
 
 def main() -> None:
@@ -81,7 +96,7 @@ def main() -> None:
 	application.add_handler(CommandHandler("ping", cmd_ping))
 	application.add_handler(CommandHandler("do_auth", do_authentication))
 	application.add_handler(CommandHandler("do_ytmp3cvt", cmd_do_ytmp3cvt))
-	application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_authentication_reply))
+	application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 	logger.info("Bot polling started")
 	application.run_polling(close_loop=False)
 

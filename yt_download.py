@@ -8,7 +8,7 @@ from telegram.ext import ContextTypes
 
 logger = logging.getLogger(__name__)
 
-def download_youtube_video(url, output_path="downloads"):
+def download_youtube_video(url, output_path=os.path.expanduser("~/.cache/romdynamics_bot/yt_videos")):
     """
     Downloads a YouTube video using yt-dlp.
     """
@@ -33,6 +33,20 @@ def download_youtube_video(url, output_path="downloads"):
         print(f"Error downloading video: {e}")
         return False, str(e)
 
+async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str) -> None:
+    await update.message.reply_text("📥 ယူကျု့ဗီဒီယို ဒေါင်းလုပ်ဆွဲနေပါပြီ... ခဏစောင့်ပေးပါ။")
+
+    loop = asyncio.get_running_loop()
+    
+    # Execute the synchronous download function in a separate thread so it doesn't block the bot
+    success, result = await loop.run_in_executor(None, download_youtube_video, url)
+
+    if success:
+        await update.message.reply_text(f"✅ အောင်မြင်စွာ ဆွဲပြီးပါပြီ:\n{result}")
+    else:
+        await update.message.reply_text(f"❌ Error downloading video: {result}")
+
+
 async def cmd_do_ytmp3cvt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not update.message:
         return
@@ -52,21 +66,12 @@ async def cmd_do_ytmp3cvt(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data["last_activity"] = current_time
 
     if not context.args:
-        await update.message.reply_text("Please provide a YouTube URL. Example: /do_ytmp3cvt https://www.youtube.com/watch?v=...")
+        context.user_data["awaiting_youtube_link"] = True
+        await update.message.reply_text("ကျေးဇူးပြု၍ YouTube video link ကို ပို့ပေးပါ။")
         return
 
     url = context.args[0]
-    await update.message.reply_text("📥 Downloading video... Please wait.")
-
-    loop = asyncio.get_running_loop()
-    
-    # Execute the synchronous download function in a separate thread so it doesn't block the bot
-    success, result = await loop.run_in_executor(None, download_youtube_video, url)
-
-    if success:
-        await update.message.reply_text(f"✅ Successfully downloaded: {result}")
-    else:
-        await update.message.reply_text(f"❌ Error downloading video: {result}")
+    await process_youtube_link(update, context, url)
 
 if __name__ == "__main__":
     # Test the download function
