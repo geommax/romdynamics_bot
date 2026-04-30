@@ -13,6 +13,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+USAGE_TEXT = (
+	"🤖 RomDynamics Bot\n\n"
+	"Available commands:\n"
+	"/ping — Bot alive check\n"
+	"/do_auth — Authenticate session\n"
+	"/do_ytmp3cvt [url] — Download YouTube audio as MP3\n\n"
+	"Session expires after 10 minutes of inactivity."
+)
+
+
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+	if update.message:
+		await update.message.reply_text(USAGE_TEXT)
+
+
+async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+	if update.message:
+		await update.message.reply_text(USAGE_TEXT)
+
 
 async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 	if update.message:
@@ -66,7 +85,7 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 	if context.user_data.get("awaiting_youtube_link", False):
 		url = update.message.text.strip()
 		context.user_data["awaiting_youtube_link"] = False
-		
+
 		# Verify auth inside this flow just to be safe
 		is_authorized = context.user_data.get("is_authorized", False)
 		last_activity = context.user_data.get("last_activity", 0)
@@ -75,7 +94,14 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 			await update.message.reply_text("Session expired. Please authenticate again.")
 			return
 
-		from yt_download import process_youtube_link
+		# Refresh session before the potentially long download starts
+		context.user_data["last_activity"] = time.time()
+
+		from yt_download import is_valid_youtube_url, process_youtube_link
+		if not is_valid_youtube_url(url):
+			await update.message.reply_text("❌ မှားယွင်းသော URL ဖြစ်ပါသည်။ YouTube link သာ ပေးပို့နိုင်ပါသည်။")
+			return
+
 		await process_youtube_link(update, context, url)
 		return
 
@@ -93,6 +119,8 @@ def main() -> None:
 	application = Application.builder().token(token).build()
 	application.bot_data["AUTHORIZED_USERNAME"] = AUTHORIZED_USERNAME
 	logger.info("Starting Telegram bot and registering handlers")
+	application.add_handler(CommandHandler("start", cmd_start))
+	application.add_handler(CommandHandler("help", cmd_help))
 	application.add_handler(CommandHandler("ping", cmd_ping))
 	application.add_handler(CommandHandler("do_auth", do_authentication))
 	application.add_handler(CommandHandler("do_ytmp3cvt", cmd_do_ytmp3cvt))

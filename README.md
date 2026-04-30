@@ -12,17 +12,11 @@ cd chat
 ls -la
 ```
 
-## 1) System packages install (Python, ffmpeg)
+## 1) System packages install on brew (Python, ffmpeg)
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip ffmpeg
-```
-
-version စစ်ရန်:
-
-```bash
-python3 --version
+sudo apt install -y python
 ```
 
 ## 2) Python virtual environment တည်ဆောက်ပါ
@@ -30,7 +24,7 @@ python3 --version
 project folder ထဲမှာ venv ဖန်တီးပါ:
 
 ```bash
-python3 -m venv .venv
+python3 -m venv venv
 ```
 
 ## 3) Python dependencies install
@@ -43,7 +37,7 @@ pip install python-telegram-bot
 
 
 ```bash
-source .venv/bin/activate
+source venv/bin/activate
 export TELEGRAM_BOT_TOKEN="YOUR_BOT_TOKEN"
 export AUTHORIZED_USERNAME="YOUR_AUTHORIZED_NAME"
 ```
