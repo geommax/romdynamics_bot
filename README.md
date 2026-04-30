@@ -1,10 +1,5 @@
 # romdynamics_bot
 
-
-# Ubuntu 22 Raw Setup (Before Docker)
-
-ဒီ guide က Ubuntu 22.04 ပေါ်မှာ Docker မသုံးဘဲ Telegram bot ကို local environment နဲ့ run စမ်းဖို့ step-by-step လမ်းညွှန်ပါတယ်။
-
 ## 0) Project folder သို့ဝင်ပါ
 
 ```bash
@@ -17,11 +12,11 @@ cd chat
 ls -la
 ```
 
-## 1) System packages install (Python + ffmpeg)
+## 1) System packages install (Python, ffmpeg)
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip 
+sudo apt install -y python3 python3-venv python3-pip ffmpeg
 ```
 
 version စစ်ရန်:

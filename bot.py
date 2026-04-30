@@ -65,33 +65,6 @@ async def handle_authentication_reply(update: Update, context: ContextTypes.DEFA
 		await update.message.reply_text("Unauthorized.")
 
 
-async def cmd_do_ytmp3cvt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	if not update.message:
-		return
-
-	is_authorized = context.user_data.get("is_authorized", False)
-	last_activity = context.user_data.get("last_activity", 0)
-	current_time = time.time()
-
-	# Check auth and 10-minute (600 seconds) timeout
-	if not is_authorized or (current_time - last_activity > 600):
-		logger.info("Access denied or session timed out for user_id=%s", update.effective_user.id if update.effective_user else None)
-		context.user_data["is_authorized"] = False  # Reset auth state safely
-		await update.message.reply_text("Unauthorized or session expired. Please authenticate using /do_auth first.")
-		return
-
-	# Update last activity to prevent timeout while active
-	context.user_data["last_activity"] = current_time
-
-	# Dummy reply content
-	reply_text = (
-		"Here is your sample paragraph for the YouTube to MP3 converter feature. "
-		"Currently, this function serves as a placeholder to demonstrate the bot's workflow. "
-		"In the future, this command will process your provided link and convert it into an audio file."
-	)
-	await update.message.reply_text(reply_text)
-
-
 def main() -> None:
 	token = os.getenv("TELEGRAM_BOT_TOKEN")
 	AUTHORIZED_USERNAME = os.getenv("AUTHORIZED_USERNAME")
@@ -99,6 +72,8 @@ def main() -> None:
 		raise RuntimeError("TELEGRAM_BOT_TOKEN environment variable is required")
 	if not AUTHORIZED_USERNAME:
 		raise RuntimeError("AUTHORIZED_USERNAME environment variable is required")
+
+	from yt_download import cmd_do_ytmp3cvt
 
 	application = Application.builder().token(token).build()
 	application.bot_data["AUTHORIZED_USERNAME"] = AUTHORIZED_USERNAME
