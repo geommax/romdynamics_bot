@@ -4,6 +4,7 @@ import time
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.request import HTTPXRequest
 
 
 
@@ -116,7 +117,12 @@ def main() -> None:
 
 	from yt_download import cmd_do_ytmp3cvt
 
-	application = Application.builder().token(token).build()
+	request = HTTPXRequest(
+		read_timeout=300,
+		write_timeout=300,
+		connect_timeout=30,
+	)
+	application = Application.builder().token(token).request(request).build()
 	application.bot_data["AUTHORIZED_USERNAME"] = AUTHORIZED_USERNAME
 	logger.info("Starting Telegram bot and registering handlers")
 	application.add_handler(CommandHandler("start", cmd_start))

@@ -108,7 +108,12 @@ async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYP
 
         try:
             with open(file_path, "rb") as audio_file:
-                await update.message.reply_audio(audio=audio_file)
+                await update.message.reply_audio(
+                    audio=audio_file,
+                    write_timeout=300,   # 5 min — file upload အတွက်
+                    read_timeout=300,    # 5 min — Telegram processing + response အတွက်
+                    connect_timeout=30,
+                )
             context.user_data["last_activity"] = time.time()
             logger.info("Audio sent successfully.")
         except Exception as e:
