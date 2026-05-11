@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 YOUTUBE_URL_PATTERN = re.compile(
     r'^(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+', re.IGNORECASE
 )
-TELEGRAM_AUDIO_SIZE_LIMIT = 50 * 1024 * 1024  # 50 MB
+TELEGRAM_AUDIO_SIZE_LIMIT = 900 * 1024 * 1024  # 900 MB
 
 
 def is_valid_youtube_url(url: str) -> bool:
@@ -99,7 +99,7 @@ async def process_youtube_link(update: Update, context: ContextTypes.DEFAULT_TYP
             os.remove(file_path)
             size_mb = file_size // (1024 * 1024)
             await update.message.reply_text(
-                f"❌ ဖိုင်ဆိုဒ် ({size_mb} MB) သည် Telegram ၏ 50MB ကန့်သတ်ချက်ကို ကျော်လွန်ပါသည်။"
+                f"❌ ဖိုင်ဆိုဒ် ({size_mb} MB) သည် 900MB ကန့်သတ်ချက်ကို ကျော်လွန်ပါသည်။"
             )
             return
 
@@ -156,6 +156,57 @@ async def cmd_do_ytmp3cvt(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.message.reply_text("❌ မှားယွင်းသော URL ဖြစ်ပါသည်။ YouTube link သာ ပေးပို့နိုင်ပါသည်။")
         return
     await process_youtube_link(update, context, url)
+
+
+async def process_youtube_link_save_only(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str) -> None:
+    await update.message.reply_text("📥 ယူကျု့ဗီဒီယို ဒေါင်းလုပ်ဆွဲနေပါပြီ... ခဏစောင့်ပေးပါ။")
+
+    loop = asyncio.get_running_loop()
+    success, result = await loop.run_in_executor(None, download_youtube_video, url)
+
+    if success:
+        file_path = result
+        file_size = os.path.getsize(file_path)
+        size_mb = file_size / (1024 * 1024)
+        context.user_data["last_activity"] = time.time()
+        logger.info(f"File saved (not sent): {file_path} ({file_size} bytes)")
+        await update.message.reply_text(
+            f"✅ အောင်မြင်စွာ ဒေါင်းလုပ်ဆွဲပြီးပါပြီ။ Folder မှာ သိမ်းထားပါပြီ။\n"
+            f"📁 Path: {file_path}\n"
+            f"📦 Size: {size_mb:.2f} MB"
+        )
+    else:
+        logger.error(f"Download failed for {url}: {result}")
+        await update.message.reply_text(f"❌ Download မအောင်မြင်ပါ:\n{result}")
+
+
+async def cmd_do_ytmp3save(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message:
+        return
+
+    is_authorized = context.user_data.get("is_authorized", False)
+    last_activity = context.user_data.get("last_activity", 0)
+    current_time = time.time()
+
+    if not is_authorized or (current_time - last_activity > 600):
+        logger.info("Access denied or session timed out for user_id=%s", update.effective_user.id if update.effective_user else None)
+        context.user_data["is_authorized"] = False
+        await update.message.reply_text("Unauthorized or session expired. Please authenticate using /do_auth first.")
+        return
+
+    context.user_data["last_activity"] = current_time
+
+    if not context.args:
+        context.user_data["awaiting_youtube_link_save"] = True
+        await update.message.reply_text("ကျေးဇူးပြု၍ YouTube video link ကို ပို့ပေးပါ။ (Folder မှာသာ သိမ်းမည်)")
+        return
+
+    url = context.args[0]
+    if not is_valid_youtube_url(url):
+        await update.message.reply_text("❌ မှားယွင်းသော URL ဖြစ်ပါသည်။ YouTube link သာ ပေးပို့နိုင်ပါသည်။")
+        return
+    await process_youtube_link_save_only(update, context, url)
+
 
 if __name__ == "__main__":
     # Test the download function

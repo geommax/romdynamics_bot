@@ -19,7 +19,8 @@ USAGE_TEXT = (
 	"Available commands:\n"
 	"/ping — Bot alive check\n"
 	"/do_auth — Authenticate session\n"
-	"/do_ytmp3cvt [url] — Download YouTube audio as MP3\n\n"
+	"/do_ytmp3cvt [url] — Download YouTube audio as MP3 & send\n"
+	"/do_ytmp3save [url] — Download YouTube audio as MP3 & save to folder only\n\n"
 	"Session expires after 10 minutes of inactivity."
 )
 
@@ -106,6 +107,28 @@ async def handle_text_messages(update: Update, context: ContextTypes.DEFAULT_TYP
 		await process_youtube_link(update, context, url)
 		return
 
+	# Handle YouTube Save-Only Flow
+	if context.user_data.get("awaiting_youtube_link_save", False):
+		url = update.message.text.strip()
+		context.user_data["awaiting_youtube_link_save"] = False
+
+		is_authorized = context.user_data.get("is_authorized", False)
+		last_activity = context.user_data.get("last_activity", 0)
+		if not is_authorized or (time.time() - last_activity > 600):
+			context.user_data["is_authorized"] = False
+			await update.message.reply_text("Session expired. Please authenticate again.")
+			return
+
+		context.user_data["last_activity"] = time.time()
+
+		from yt_download import is_valid_youtube_url, process_youtube_link_save_only
+		if not is_valid_youtube_url(url):
+			await update.message.reply_text("❌ မှားယွင်းသော URL ဖြစ်ပါသည်။ YouTube link သာ ပေးပို့နိုင်ပါသည်။")
+			return
+
+		await process_youtube_link_save_only(update, context, url)
+		return
+
 
 def main() -> None:
 	token = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -115,7 +138,7 @@ def main() -> None:
 	if not AUTHORIZED_USERNAME:
 		raise RuntimeError("AUTHORIZED_USERNAME environment variable is required")
 
-	from yt_download import cmd_do_ytmp3cvt
+	from yt_download import cmd_do_ytmp3cvt, cmd_do_ytmp3save
 
 	request = HTTPXRequest(
 		read_timeout=300,
@@ -130,6 +153,7 @@ def main() -> None:
 	application.add_handler(CommandHandler("ping", cmd_ping))
 	application.add_handler(CommandHandler("do_auth", do_authentication))
 	application.add_handler(CommandHandler("do_ytmp3cvt", cmd_do_ytmp3cvt))
+	application.add_handler(CommandHandler("do_ytmp3save", cmd_do_ytmp3save))
 	application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text_messages))
 	logger.info("Bot polling started")
 	application.run_polling(close_loop=False)
