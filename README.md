@@ -47,3 +47,10 @@ export AUTHORIZED_USERNAME="YOUR_AUTHORIZED_NAME"
 ```bash
 python bot.py
 ```
+
+## Commands
+
+- /do_auth
+- /do_ytmp3cvt [url]
+- /do_ytmp3save [url]
+- /do_ytmp4save [url]
